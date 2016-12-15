@@ -22,15 +22,15 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Internal.Http
 
         public async Task<bool> WalkConnectionsAndCloseAsync(TimeSpan timeout)
         {
-            return await WalkConnectionsAsync((connectionManager, tcs) => connectionManager.WalkConnectionsAndCloseCore(tcs), timeout);
+            return await WalkConnectionsAsync((connectionManager, tcs) => connectionManager.WalkConnectionsAndCloseCore(tcs), timeout).ConfigureAwait(false);
         }
 
         public async Task<bool> WalkConnectionsAndAbortAsync(TimeSpan timeout)
         {
-            return await WalkConnectionsAsync((connectionManager, tcs) => connectionManager.WalkConnectionsAndAbortCore(tcs), timeout);
+            return await WalkConnectionsAsync((connectionManager, tcs) => connectionManager.WalkConnectionsAndAbortCore(tcs), timeout).ConfigureAwait(false);
         }
 
-        public async Task<bool> WalkConnectionsAsync(Action<ConnectionManager, TaskCompletionSource<object>> action, TimeSpan timeout)
+        private async Task<bool> WalkConnectionsAsync(Action<ConnectionManager, TaskCompletionSource<object>> action, TimeSpan timeout)
         {
             var tcs = new TaskCompletionSource<object>();
 
@@ -51,7 +51,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Internal.Http
 
         private void WalkConnectionsCore(Func<Connection, Task> action, TaskCompletionSource<object> tcs)
         {
-            var connectionAbortTasks = new List<Task>();
+            var tasks = new List<Task>();
 
             _thread.Walk(ptr =>
             {
@@ -60,13 +60,13 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Internal.Http
 
                 if (connection != null)
                 {
-                    connectionAbortTasks.Add(action(connection));
+                    tasks.Add(action(connection));
                 }
             });
 
             _threadPool.Run(() =>
             {
-                Task.WaitAll(connectionAbortTasks.ToArray());
+                Task.WaitAll(tasks.ToArray());
                 tcs.SetResult(null);
             });
         }
