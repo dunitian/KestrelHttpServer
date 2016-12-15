@@ -160,6 +160,11 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Internal
                 if (!await ConnectionManager.WalkConnectionsAndCloseAsync(_shutdownTimeout).ConfigureAwait(false))
                 {
                     _log.NotAllConnectionsClosedGracefully();
+
+                    if (!await ConnectionManager.WalkConnectionsAndAbortAsync(_shutdownTimeout).ConfigureAwait(false))
+                    {
+                        _log.NotAllConnectionsAborted();
+                    }
                 }
 
                 var result = await WaitAsync(PostAsync(state =>
@@ -273,7 +278,7 @@ namespace Microsoft.AspNetCore.Server.Kestrel.Internal
         {
             lock (_startSync)
             {
-                var tcs = (TaskCompletionSource<int>) parameter;
+                var tcs = (TaskCompletionSource<int>)parameter;
                 try
                 {
                     _loop.Init(_engine.Libuv);
